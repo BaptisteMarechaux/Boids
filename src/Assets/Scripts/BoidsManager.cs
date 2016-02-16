@@ -1,19 +1,36 @@
 using UnityEngine;
 using System.Collections;
+using UnityEngine.UI;
+
+
 
 public class BoidsManager : MonoBehaviour {
 
     [SerializeField]
     int boidsNumber;
-    [SerializeField]
+    [SerializeField][Range(0,20)]
     float distanceTreshold = 5;
-    [SerializeField]
+    [SerializeField][Range(0, 5)]
     float speedLimit;
     [SerializeField]
     Transform leaderTarget;
+    [SerializeField]
+    Vector3 windVector;
+    [SerializeField]
+    Transform targetPlace;
+
+    [SerializeField]
+    Transform mainCameraTransform;
+
+    [SerializeField]
+    PositionBound bounds;
+
+    [SerializeField]
+    bool followingLeader;
 
     [SerializeField]
     Transform[] boidsTransform;
+
 
 
     Boid[] boids;
@@ -27,6 +44,9 @@ public class BoidsManager : MonoBehaviour {
 	void Update () {
         MoveBoids();
         UpdateBoidsTransform();
+
+        mainCameraTransform.LookAt(BoidsCenter());
+
 	}
 
     void InitializePositions()
@@ -42,8 +62,12 @@ public class BoidsManager : MonoBehaviour {
     {
         for (int i = 0; i < boids.Length; i++)
         {
-            boids[i].velocity = boids[i].velocity + MoveToCenter(boids[i]) + GetCloser(boids[i]) + MatchVelocities(boids[i]) + followLeader(boids[i]);
-
+            boids[i].velocity = boids[i].velocity + MoveToCenter(boids[i]) + GetCloser(boids[i]) + MatchVelocities(boids[i]) + wind() + BoundPosition(boids[i]);
+            if (followingLeader)
+            {
+                boids[i].velocity += tendToPlace(boids[i]) + followLeader(boids[i]);
+            }
+                
             LimitVelocity(boids[i]);
             /*
             if(i==0)
@@ -52,27 +76,46 @@ public class BoidsManager : MonoBehaviour {
                 continue;
             }
             */
+            
             boids[i].position = boids[i].position + boids[i].velocity;
         }
     }
 
     Vector3 MoveToCenter(Boid b)
     {
-        var perceivedCenter = new Vector3(); ;
+        //Cohésion
+        var perceivedCenter = new Vector3(0,0,0); ;
 
-        for(int i=0;i<boids.Length;i++)
+        for(int i=0;i<boidsNumber;i++)
         {
             if(b.id != boids[i].id)
                 perceivedCenter += boids[i].position;
         }
 
-        perceivedCenter *= 1 / (boids.Length - 1);
+        perceivedCenter /= (boids.Length - 1);
 
         return (perceivedCenter - b.position)/100;
     }
 
+    Vector3 BoidsCenter()
+    {
+        var perceivedCenter = new Vector3(0,0,0); ;
+
+        for (int i = 0; i < boids.Length; i++)
+        {
+            perceivedCenter.x += boids[i].position.x;
+            perceivedCenter.y += boids[i].position.y;
+            perceivedCenter.z += boids[i].position.z;
+        }
+
+        perceivedCenter /= (boids.Length);
+
+        return perceivedCenter;
+    }
+
     Vector3 GetCloser(Boid b)
     {
+        //Séparation
         var newDistance = new Vector3();
         for(int i=0;i<boids.Length;i++)
         {
@@ -82,11 +125,13 @@ public class BoidsManager : MonoBehaviour {
                     newDistance = newDistance - (boids[i].position - b.position);
             }
         }
+
         return newDistance;
     }
     
     Vector3 MatchVelocities(Boid b)
     {
+        //Alignement
         var perceivedVelocity = new Vector3(); ;
 
         for (int i = 0; i < boids.Length; i++)
@@ -113,11 +158,66 @@ public class BoidsManager : MonoBehaviour {
 
     void UpdateBoidsTransform()
     {
-        for(int i=0;i< boidsTransform.Length;i++)
+        for (int i = 0; i < boidsTransform.Length; i++)
         {
             boidsTransform[i].position = boids[i].position;
-            boidsTransform[i].LookAt(boidsTransform[0]);
+            if(followingLeader)
+            {
+                boidsTransform[i].LookAt(leaderTarget.position);
+            }
+            else
+            {
+                boidsTransform[i].forward = Vector3.Lerp(boidsTransform[i].forward, boids[i].velocity.normalized, 5*Time.deltaTime);
+            }
+            
 
         }
+
+    }
+
+    Vector3 wind()
+    {
+        return windVector;
+    }
+
+    Vector3 tendToPlace (Boid b)
+    {
+        return (targetPlace.position-b.position) / 100;
+    }
+
+    Vector3 fleeFromPredator (Boid b)
+    {
+        return new Vector3();
+    }
+
+    Vector3 BoundPosition(Boid b)
+    {
+        Vector3 v = new Vector3();
+        if (b.position.x > bounds.xMax)
+        {
+            v.x = -10;
+        }
+        else if(b.position.x < bounds.xMin)
+        {
+            v.x = 10;
+        }
+        else if(b.position.y > bounds.yMax)
+        {
+            v.y = -10;
+        }
+        else if(b.position.y < bounds.yMin)
+        {
+            v.y = 10;
+        }
+        else if(b.position.z > bounds.zMax)
+        {
+            v.z = -10;
+        }
+        else if(b.position.z < bounds.zMin)
+        {
+            v.z = 10;
+        }
+        return v;
+
     }
 }

@@ -5,10 +5,12 @@ public class Boid {
 
     public  Vector3 position;
     public Vector3 velocity;
+    public int id;
 
-    public Boid()
+    public Boid(int id_, Vector3 pos_)
     {
-        this.position = new Vector3();
+        this.id = id_;
+        this.position = pos_;
         this.velocity = new Vector3();
         
     }
